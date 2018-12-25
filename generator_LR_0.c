@@ -15,12 +15,12 @@ struct quat {
     char res[64]; // 运算结果
 };
 
-struct item {
+struct item { // SYN 栈元素
     char word;
     int state;
 };
 
-struct var {
+struct var { // SEM 栈元素
     char str[64];
 };
 
@@ -32,10 +32,11 @@ struct quat quats[20];
 struct quat *q = quats;
 int state = 0; // 状态
 int col = 0; // 列
+int action = -1; // 执行子程序：GEQ 0, PUSH 1
 
-void print_quat();
-
-void print_translator(char word);
+void print_quat(); // 打印生成的所有四元式
+void print_stacks(char word); // 打印 SYN 和 SEM 栈
+void print_action(); // 打印动作：GEQ 或 PUSH
 
 void GEQ();
 
@@ -86,7 +87,7 @@ int main(void) {
 
     printf("SYN                                               top  w       SEM\n"); // 表头
     while ((*code) != '\0') {
-        print_translator(*code);
+        print_stacks(*code);
         while ((*code) == ' ') // 跳过代码中的空格
             code++;
         // 找到对应的列
@@ -168,6 +169,7 @@ int main(void) {
                     stack_peek(SYN, item);
                     strcpy(var->str, &item->word);
                     stack_push(SEM, var);
+                    action = 1;
 
                     stack_poll(SYN, item);
                     stack_peek(SYN, item);
@@ -179,10 +181,10 @@ int main(void) {
                     break;
             }
         } else if (state == 0) {
-            printf("[Error] Invalid expression, unexpected character: %c\n", *code);
+            printf("\n[Error] Invalid expression, unexpected character: %c\n", *code);
             break;
         } else if (state == OK) {
-            printf("[Info] Generation completed\n");
+            printf("\n[Info] Generation completed\n");
             print_quat();
             break;
         } else {
@@ -191,8 +193,8 @@ int main(void) {
             item->word = *code;
             stack_push(SYN, item);
             code++;
-            continue; // 开始下一个循环
         }
+        print_action();
     }
 
     // 退出程序前释放空间
@@ -245,10 +247,11 @@ void GEQ() {
      */
     stack_push(SEM, q->res);
     q++;
+    action = 0;
 }
 
 
-void print_translator(char word) {
+void print_stacks(char word) {
     struct item *p_item = (struct item *) SYN->elems;
     for (int i = 0; i < SYN->pos; i++) {
         printf("%c%d ", (p_item + i)->word, (p_item + i)->state);
@@ -267,6 +270,19 @@ void print_translator(char word) {
     for (int i = 0; i < SEM->pos; i++) {
         printf("%s ", (p_var + i)->str);
     }
-    printf("\n");
     free(top);
+}
+
+void print_action() {
+    if (action == 0) {
+        struct quat *tmp = q - 1;
+        printf("\tGEQ (%c, %s, %s, %s)", tmp->op, tmp->op1, tmp->op2, tmp->res);
+    } else if (action == 1) {
+        struct item *top = (struct item *) malloc(sizeof(item));
+        stack_peek(SYN, top);
+        printf("\tPUSH");
+        free(top);
+    }
+    action = -1;
+    printf("\n");
 }
