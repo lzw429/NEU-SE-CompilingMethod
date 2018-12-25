@@ -1,5 +1,5 @@
 //
-// Created by syh on 12/23/18.
+// Created by Yiheng SHU on 12/23/18.
 //
 
 #include <stdio.h>
@@ -7,8 +7,8 @@
 #include "stack.h"
 #include <ctype.h>
 
-#define OK 20
-struct quat {
+#define OK 20 // 分析结束状态
+struct quat { // 四元式
     char op; // 运算符
     char op1[64]; // 操作数1
     char op2[64]; // 操作数2
@@ -26,10 +26,10 @@ struct var { // SEM 栈元素
 
 stack *SYN; // 算符栈
 stack *SEM; // 语义栈
-struct item *item;
-struct var *var;
-struct quat quats[20];
-struct quat *q = quats;
+struct item *item; // 用于 SYN 栈的临时结构体变量
+struct var *var; // 用于 SEM 栈的临时结构体变量
+struct quat quats[20]; // 生成的四元式数组
+struct quat *q = quats; // 四元式数组指针
 int state = 0; // 状态
 int col = 0; // 列
 int action = -1; // 执行子程序：GEQ 0, PUSH 1
@@ -37,8 +37,7 @@ int action = -1; // 执行子程序：GEQ 0, PUSH 1
 void print_quat(); // 打印生成的所有四元式
 void print_stacks(char word); // 打印 SYN 和 SEM 栈
 void print_action(); // 打印动作：GEQ 或 PUSH
-
-void GEQ();
+void GEQ(); // 生成四元式
 
 int SLR[][9] = {
         {8,  0,  0,  9,  0,  0,  1,  4, 7},
@@ -53,7 +52,7 @@ int SLR[][9] = {
         {8,  0,  0,  9,  0,  0,  10, 4, 7},
         {0,  2,  0,  0,  11, 0,  0,  0, 0},
         {-5, -5, -5, -5, -5, -5, 0,  0, 0}
-};
+}; // SLR 分析表
 
 int main(void) {
     // 初始化
@@ -85,7 +84,8 @@ int main(void) {
     stack_push(SYN, item);
     printf("[Info] Start to generate...\n");
 
-    printf("SYN                                               top  w       SEM\n"); // 表头
+    // 表头
+    printf("SYN                                               top  w       SEM\n");
     while ((*code) != '\0') {
         print_stacks(*code);
         while ((*code) == ' ') // 跳过代码中的空格
@@ -181,9 +181,11 @@ int main(void) {
                     break;
             }
         } else if (state == 0) {
+            // 未期望的符号
             printf("\n[Error] Invalid expression, unexpected character: %c\n", *code);
             break;
         } else if (state == OK) {
+            // 分析结束
             printf("\n[Info] Generation completed\n");
             print_quat();
             break;
@@ -194,7 +196,7 @@ int main(void) {
             stack_push(SYN, item);
             code++;
         }
-        print_action();
+        print_action(); // 打印动作信息
     }
 
     // 退出程序前释放空间
@@ -207,7 +209,7 @@ int main(void) {
 }
 
 /**
- * 打印四元式
+ * 打印四元式数组中的所有四元式
  */
 void print_quat() {
     struct quat *p = quats;
@@ -250,7 +252,10 @@ void GEQ() {
     action = 0;
 }
 
-
+/**
+ * 打印 SYN 和 SEM 栈
+ * @param word 当前单词
+ */
 void print_stacks(char word) {
     struct item *p_item = (struct item *) SYN->elems;
     for (int i = 0; i < SYN->pos; i++) {
@@ -273,16 +278,19 @@ void print_stacks(char word) {
     free(top);
 }
 
+/**
+ * 打印动作：GEQ 或 PUSH
+ */
 void print_action() {
-    if (action == 0) {
+    if (action == 0) { // 执行了 GEQ
         struct quat *tmp = q - 1;
         printf("\tGEQ (%c, %s, %s, %s)", tmp->op, tmp->op1, tmp->op2, tmp->res);
-    } else if (action == 1) {
+    } else if (action == 1) { // 执行了 PUSH
         struct item *top = (struct item *) malloc(sizeof(item));
         stack_peek(SYN, top);
         printf("\tPUSH");
         free(top);
     }
-    action = -1;
+    action = -1; // 重置
     printf("\n");
 }
