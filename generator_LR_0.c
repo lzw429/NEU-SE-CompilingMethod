@@ -69,6 +69,10 @@ int main(void) {
 
     fscanf(fp, "%s", code);
     int len = (int) strlen(code);
+    if (len == 0) {
+        printf("[Info] The expression is empty");
+        return 0;
+    }
     code[len] = '#';
     code[len + 1] = '\0';
 
