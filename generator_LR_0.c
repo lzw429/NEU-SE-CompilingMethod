@@ -8,6 +8,7 @@
 #include <ctype.h>
 
 #define OK 20 // 分析结束状态
+#define PRODUCTION_SIZE 6
 struct quat { // 四元式
     char op; // 运算符
     char op1[64]; // 操作数1
@@ -24,6 +25,21 @@ struct var { // SEM 栈元素
     char str[64];
 };
 
+struct production { // 产生式
+    int state_case; // 产生式编号
+    int act; // 动作：GEQ 0, PUSH 1，无 -1
+    int poll_times; // 弹栈次数
+    int SLR_col; // 更新 state 需要查询的 SLR col
+    char word; // 产生式左侧
+} productions[PRODUCTION_SIZE] = {
+        {-1, 0,  3, 6, 'E'},
+        {-2, -1, 1, 6, 'E'},
+        {-3, 0,  3, 7, 'T'},
+        {-4, -1, 1, 7, 'T'},
+        {-5, -1, 3, 8, 'F'},
+        {-6, 1,  1, 8, 'F'}
+};
+
 stack *SYN; // 算符栈
 stack *SEM; // 语义栈
 struct item *item; // 用于 SYN 栈的临时结构体变量
@@ -38,6 +54,7 @@ void print_quat(); // 打印生成的所有四元式
 void print_stacks(char word); // 打印 SYN 和 SEM 栈
 void print_action(); // 打印动作：GEQ 或 PUSH
 void GEQ(); // 生成四元式
+void statute(); // 执行规约
 
 int SLR[][9] = {
         {8,  0,  0,  9,  0,  0,  1,  4, 7},
@@ -116,74 +133,7 @@ int main(void) {
         state = SLR[item->state][col];
 
         if (state < 0) { // 需要规约
-            switch (state) {
-                case -1:
-                    // 规约：E -> E +/- T {GEQ(+/-)}
-                    GEQ();
-                    stack_poll(SYN, item);
-                    stack_poll(SYN, item);
-                    stack_poll(SYN, item);
-
-                    stack_peek(SYN, item);
-                    item->state = SLR[item->state][6];
-                    item->word = 'E';
-                    stack_push(SYN, item);
-                    break;
-                case -2:
-                    // 规约：E -> T
-                    stack_poll(SYN, item);
-
-                    stack_peek(SYN, item);
-                    item->state = SLR[item->state][6];
-                    item->word = 'E';
-                    stack_push(SYN, item);
-                    break;
-                case -3:
-                    // 规约：T -> T *// F {GEQ(*//)}
-                    GEQ();
-                    stack_poll(SYN, item);
-                    stack_poll(SYN, item);
-                    stack_poll(SYN, item);
-
-                    stack_peek(SYN, item);
-                    item->state = SLR[item->state][7];
-                    item->word = 'T';
-                    stack_push(SYN, item);
-                    break;
-                case -4:
-                    // 规约：T -> F
-                    stack_poll(SYN, item);
-                    stack_peek(SYN, item);
-                    item->state = SLR[item->state][7];
-                    item->word = 'T';
-                    stack_push(SYN, item);
-                    break;
-                case -5:
-                    // 规约：F -> (E)
-                    stack_poll(SYN, item);
-                    stack_poll(SYN, item);
-                    stack_poll(SYN, item);
-                    stack_peek(SYN, item);
-                    item->state = SLR[item->state][8];
-                    item->word = 'F';
-                    stack_push(SYN, item);
-                    break;
-                case -6:
-                    // 规约：F -> i
-                    stack_peek(SYN, item);
-                    strcpy(var->str, &item->word);
-                    stack_push(SEM, var);
-                    action = 1;
-
-                    stack_poll(SYN, item);
-                    stack_peek(SYN, item);
-                    item->state = SLR[item->state][8];
-                    item->word = 'F';
-                    stack_push(SYN, item);
-                    break;
-                default:
-                    break;
-            }
+            statute();
         } else if (state == 0) {
             // 未期望的符号
             printf("\n[Error] Invalid expression, unexpected character: %c\n", *code);
@@ -297,4 +247,35 @@ void print_action() {
     }
     action = -1; // 重置
     printf("\n");
+}
+
+void statute() {
+    struct production *p = productions;
+    int i;
+    for (i = 0; i <= PRODUCTION_SIZE; i++) {
+        if ((p + i)->state_case == state) { break; }
+    }
+    if (i == PRODUCTION_SIZE)
+        return;
+    p = p + i;
+    switch (p->act) {
+        case 0: // GEQ
+            GEQ();
+            break;
+        case 1: // PUSH
+            stack_peek(SYN, item);
+            strcpy(var->str, &item->word);
+            stack_push(SEM, var);
+            action = 1;
+            break;
+        default:
+            break;
+    }
+    for (i = 0; i < p->poll_times; i++) {
+        stack_poll(SYN, item);
+    }
+    stack_peek(SYN, item);
+    item->state = SLR[item->state][p->SLR_col];
+    item->word = p->word;
+    stack_push(SYN, item);
 }
