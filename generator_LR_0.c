@@ -54,7 +54,7 @@ void print_quat(); // 打印生成的所有四元式
 void print_stacks(char word); // 打印 SYN 和 SEM 栈
 void print_action(); // 打印动作：GEQ 或 PUSH
 void GEQ(); // 生成四元式
-void statute(); // 执行规约
+void reduction(); // 执行归约
 
 int SLR[][9] = {
         {8,  0,  0,  9,  0,  0,  1,  4, 7},
@@ -132,8 +132,8 @@ int main(void) {
         stack_peek(SYN, item);
         state = SLR[item->state][col];
 
-        if (state < 0) { // 需要规约
-            statute();
+        if (state < 0) { // 需要归约
+            reduction();
         } else if (state == 0) {
             // 未期望的符号
             printf("\n[Error] Invalid expression, unexpected character: %c\n", *code);
@@ -249,7 +249,7 @@ void print_action() {
     printf("\n");
 }
 
-void statute() {
+void reduction() {
     struct production *p = productions;
     int i;
     for (i = 0; i <= PRODUCTION_SIZE; i++) {
